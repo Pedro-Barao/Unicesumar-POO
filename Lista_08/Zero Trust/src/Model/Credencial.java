@@ -18,6 +18,14 @@ public class Credencial {
     }
 
 
+    @Override
+    public int hashCode()
+    {
+
+        return Objects.hash(codigoHex);
+
+    }
+
     public String getCodigoHex()
     {
 
@@ -28,7 +36,7 @@ public class Credencial {
     public void setCodigoHex(String codigoHex)
     {
 
-        this.codigoHex = codigoHex;
+        this.codigoHex = String.valueOf(codigoHex.hashCode());
 
     }
 
@@ -84,14 +92,6 @@ public class Credencial {
         Credencial novo = (Credencial) objeto;
 
         return Objects.equals(codigoHex, novo.codigoHex);
-
-    }
-
-    @Override
-    public int hashCode()
-    {
-
-        return Objects.hash(codigoHex);
 
     }
 
