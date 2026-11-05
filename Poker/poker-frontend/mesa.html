@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Poker — Mesa</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/mesa.css">
+</head>
+<body>
+  <header class="topo">
+    <a class="logo" href="index.html">
+      <span class="naipes">♠<span class="r">♥</span>♣<span class="r">♦</span></span>
+      <span class="logo-texto">Poker Hold'em</span>
+    </a>
+    <div class="info-sala">
+      <strong id="nomeSala">Carregando…</strong>
+      <span id="blindsSala"></span>
+      <span class="fase" id="fase">—</span>
+    </div>
+    <a class="btn btn-fantasma" href="index.html" id="btnSair">← Sair da mesa</a>
+  </header>
+
+  <main class="jogo">
+    <section class="area-mesa">
+      <div class="mesa" id="mesa">
+        <div class="feltro">
+          <div class="centro">
+            <div class="pote" id="pote"><span class="ficha" style="--c:#e3b54a"></span> Pote: <strong>0</strong></div>
+            <div class="cartas-mesa" id="cartasMesa"></div>
+            <div class="resultado oculto" id="resultado"></div>
+          </div>
+        </div>
+        <!-- Assentos, apostas e botão do dealer são inseridos por js/mesa.js -->
+        <div id="assentos"></div>
+      </div>
+    </section>
+
+    <aside class="painel">
+      <div class="abas" role="tablist">
+        <button class="aba ativa" data-aba="log" role="tab">Histórico</button>
+        <button class="aba" data-aba="chat" role="tab">Chat <span class="badge oculto" id="badgeChat">•</span></button>
+      </div>
+      <ol class="log" id="log"></ol>
+      <div class="chat oculto" id="chat">
+        <ol class="mensagens" id="mensagens"></ol>
+        <form class="form-chat" id="formChat">
+          <input class="campo" id="inputChat" maxlength="120" placeholder="Mensagem…" autocomplete="off">
+          <button class="btn" type="submit">Enviar</button>
+        </form>
+      </div>
+    </aside>
+  </main>
+
+  <!-- Barra de ações do jogador -->
+  <footer class="barra">
+    <div class="minha-mao">
+      <div class="minhas-cartas" id="minhasCartas"></div>
+      <div>
+        <div class="nome-mao" id="nomeMao">Aguardando cartas…</div>
+        <div class="minhas-fichas">Fichas: <strong id="minhasFichas">0</strong></div>
+      </div>
+    </div>
+
+    <div class="acoes" id="acoes">
+      <div class="aumento" id="painelAumento">
+        <div class="atalhos">
+          <button class="btn mini" data-atalho="min">Mín</button>
+          <button class="btn mini" data-atalho="meio">½ Pote</button>
+          <button class="btn mini" data-atalho="pote">Pote</button>
+          <button class="btn mini" data-atalho="max">All-in</button>
+        </div>
+        <div class="slider-linha">
+          <input type="range" id="sliderAumento" min="0" max="100" step="1">
+          <input type="number" class="campo valor" id="valorAumento" min="0">
+        </div>
+      </div>
+      <div class="botoes">
+        <button class="btn btn-vermelho" id="btnDesistir" title="Atalho: F">Desistir</button>
+        <button class="btn" id="btnPassar" title="Atalho: C">Passar</button>
+        <button class="btn btn-ouro" id="btnAumentar" title="Atalho: R">Aumentar</button>
+      </div>
+      <div class="espera oculto" id="espera">Aguardando os outros jogadores…</div>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast"></div>
+
+  <script src="js/api.js"></script>
+  <script src="js/mesa.js"></script>
+</body>
+</html>
