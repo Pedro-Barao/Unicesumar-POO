@@ -2,20 +2,22 @@
  * api.js — Camada de comunicação com o back-end
  * ---------------------------------------------------------------------
  * Todo o front-end conversa SOMENTE com o objeto `PokerAPI` abaixo.
- * Hoje ele usa um back-end SIMULADO (salas fictícias + bots na mesa),
- * para que as páginas funcionem sem servidor.
+ * Ele fala com o servidor Java (br.com.poker.web.ServidorWeb):
+ *   - REST para as salas (/api/salas)
+ *   - Server-Sent Events para receber o estado da mesa ao vivo
+ *   - POST para enviar jogadas e chat
  *
- * Para integrar com o back-end real:
- *   1. Mude USAR_MOCK para false.
- *   2. Ajuste URL_API / URL_WS.
- *   3. Faça o servidor responder no formato descrito no README
- *      (lista de salas e objeto "estado da mesa").
+ * Com USAR_MOCK = true, usa a simulação embutida (sem servidor).
  * ===================================================================== */
 
 const PokerAPI = (() => {
-  const USAR_MOCK = true;
-  const URL_API = 'http://localhost:3000/api';
-  const URL_WS = 'ws://localhost:3000/ws';
+  // false = usa o servidor Java (br.com.poker.web.ServidorWeb).
+  // true  = usa a simulação abaixo, sem servidor (útil para mexer só no visual).
+  const USAR_MOCK = false;
+  // Se a página veio do próprio servidor Java, usa o mesmo endereço;
+  // se veio de outro lugar (Live Server, arquivo aberto direto), aponta para a porta 8080.
+  const PORTA_JAVA = '8080';
+  const URL_API = location.port === PORTA_JAVA ? '/api' : `http://localhost:${PORTA_JAVA}/api`;
 
   const espera = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -56,7 +58,12 @@ const PokerAPI = (() => {
       await espera(250);
       return structuredClone(salasMock());
     }
-    const r = await fetch(`${URL_API}/salas`);
+    let r;
+    try {
+      r = await fetch(`${URL_API}/salas`);
+    } catch {
+      throw new Error('servidor Java não está rodando (inicie br.com.poker.web.ServidorWeb)');
+    }
     if (!r.ok) throw new Error('Falha ao carregar salas');
     return r.json();
   }
@@ -80,7 +87,7 @@ const PokerAPI = (() => {
       await espera(300);
       const sala = {
         id: 'sala-' + Date.now().toString(36),
-        jogadores: 0,
+        jogadores: dados.bots ?? 0,
         emJogo: false,
         ...dados,
       };
@@ -94,7 +101,10 @@ const PokerAPI = (() => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dados),
     });
-    if (!r.ok) throw new Error('Não foi possível criar a sala');
+    if (!r.ok) {
+      const erro = await r.json().catch(() => ({}));
+      throw new Error(erro.erro || 'Não foi possível criar a sala');
+    }
     return r.json();
   }
 
@@ -117,19 +127,43 @@ const PokerAPI = (() => {
       };
     }
 
-    // ---- Exemplo de integração via WebSocket ----
-    const ws = new WebSocket(`${URL_WS}?sala=${encodeURIComponent(sala.id)}&nome=${encodeURIComponent(nomeJogador)}`);
-    ws.onmessage = (msg) => {
+    // ---- Servidor Java: recebe o estado por SSE e envia ações por POST ----
+    const base = `${URL_API}/salas/${encodeURIComponent(sala.id)}`;
+    const fonte = new EventSource(`${base}/eventos?nome=${encodeURIComponent(nomeJogador)}`);
+    let clienteId = null;
+    let encerrada = false;
+
+    const enviar = (rota, corpo = {}) => clienteId && fetch(`${base}/${rota}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cliente: clienteId, ...corpo }),
+      keepalive: true,
+    }).catch(() => onEvento({ tipo: 'log', texto: 'Falha ao falar com o servidor.' }));
+
+    const encerrar = () => { encerrada = true; fonte.close(); };
+
+    fonte.onmessage = (msg) => {
       const dados = JSON.parse(msg.data);
-      if (dados.tipo === 'estado') onEstado(dados.estado);
+      if (dados.tipo === 'bemvindo') clienteId = dados.cliente;
+      else if (dados.tipo === 'estado') onEstado(dados.estado);
+      else if (dados.tipo === 'erro') { encerrar(); onEvento(dados); }
       else onEvento(dados);
     };
-    ws.onclose = () => onEvento({ tipo: 'log', texto: 'Conexão encerrada.' });
-    const enviar = (obj) => ws.readyState === 1 && ws.send(JSON.stringify(obj));
+    // Não reconecta sozinho: uma nova conexão ocuparia outro lugar na mesa
+    fonte.onerror = () => {
+      if (encerrada) return;
+      encerrar();
+      onEvento({ tipo: 'log', texto: 'Conexão com o servidor perdida. Recarregue a página.' });
+    };
+    // Fechou a aba: libera o lugar na hora
+    window.addEventListener('pagehide', () => {
+      if (clienteId && !encerrada) navigator.sendBeacon(`${base}/sair`, JSON.stringify({ cliente: clienteId }));
+    });
+
     return {
-      acao: (tipo, valor) => enviar({ tipo: 'acao', acao: tipo, valor }),
-      chat: (texto) => enviar({ tipo: 'chat', texto }),
-      sair: () => ws.close(),
+      acao: (tipo, valor) => enviar('acao', { acao: tipo, valor }),
+      chat: (texto) => enviar('chat', { texto }),
+      sair: () => { if (!encerrada) { enviar('sair'); encerrar(); } },
     };
   }
 

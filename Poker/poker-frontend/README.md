@@ -3,13 +3,11 @@
 Front-end em **HTML, CSS e JavaScript puro** (sem build, sem dependências).
 
 ## Como rodar
-Basta abrir `index.html` no navegador. Para evitar restrições do navegador com `file://`,
-pode-se usar um servidor simples:
+O front é servido pelo back-end Java. Na pasta `Poker`, rode `br.com.poker.web.ServidorWeb`
+(veja o README principal) e abra **http://localhost:8080**.
 
-```bash
-npx serve .          # ou
-python -m http.server 8080
-```
+Também funciona aberto por outro servidor (ex.: Live Server do VS Code): o `api.js`
+aponta automaticamente para `http://localhost:8080/api`, desde que o servidor Java esteja rodando.
 
 ## Estrutura
 ```
@@ -18,27 +16,22 @@ mesa.html         Página 2 — Mesa de jogo (mesa.html?sala=ID)
 css/base.css      Estilos compartilhados (cores, botões, cartas, modal)
 css/lobby.css     Estilos do lobby
 css/mesa.css      Estilos da mesa
-js/api.js         Camada de comunicação com o back-end (hoje SIMULADA)
+js/api.js         Camada de comunicação com o back-end Java
 js/lobby.js       Lógica da página de salas
 js/mesa.js        Desenha a mesa a partir do "estado" e envia ações
 ```
 
-## Back-end simulado
-`js/api.js` traz um mock completo: 8 salas fictícias e uma mesa com bots que
-jogam de verdade (blinds, apostas, flop/turn/river, showdown com avaliador de mãos).
-Simplificações do mock: sem side pots e recompra automática quando alguém quebra.
+## Modo simulado (sem servidor)
+`js/api.js` ainda traz um mock completo (salas fictícias e bots em JavaScript).
+Para usá-lo, mude `USAR_MOCK` para `true`. Útil para trabalhar só no visual.
 
-## Integrando com o back-end real
-1. Em `js/api.js`, troque `USAR_MOCK = true` para `false`.
-2. Ajuste `URL_API` e `URL_WS`.
-3. O servidor deve fornecer:
-
-| Função | Back-end esperado |
+## Comunicação com o back-end
+| Função | Back-end |
 |---|---|
-| `listarSalas()` | `GET /api/salas` → lista de salas |
-| `obterSala(id)` | `GET /api/salas/:id` → uma sala |
-| `criarSala(dados)` | `POST /api/salas` → sala criada |
-| `conectarMesa(...)` | WebSocket `ws://.../ws?sala=ID&nome=APELIDO` |
+| `listarSalas()` | `GET /api/salas` |
+| `obterSala(id)` | `GET /api/salas/:id` |
+| `criarSala(dados)` | `POST /api/salas` (inclui `bots` e `dificuldade`) |
+| `conectarMesa(...)` | `EventSource /api/salas/:id/eventos?nome=APELIDO` + `POST .../acao`, `.../chat`, `.../sair` |
 
 ### Formato de uma sala
 ```json
@@ -46,20 +39,22 @@ Simplificações do mock: sem side pots e recompra automática quando alguém qu
   "buyIn": 2000, "maxJogadores": 8, "jogadores": 6, "emJogo": true, "privada": false }
 ```
 
-### Mensagens do WebSocket
-Cliente → servidor:
+### Mensagens
+Servidor → cliente (cada evento SSE traz um JSON):
 ```json
-{ "tipo": "acao", "acao": "desistir|passar|pagar|aumentar|allin", "valor": 120 }
-{ "tipo": "chat", "texto": "boa sorte!" }
-```
-(`valor` só em `aumentar`, e é o valor **total** apostado na rodada.)
-
-Servidor → cliente:
-```json
+{ "tipo": "bemvindo", "cliente": "uuid-da-conexao" }
 { "tipo": "estado", "estado": { ...ver abaixo... } }
 { "tipo": "log",  "texto": "Ana: pagou 20" }
-{ "tipo": "chat", "autor": "Ana", "texto": "gg" }
+{ "tipo": "chat", "autor": "Ana", "texto": "gg", "voce": false }
+{ "tipo": "erro", "texto": "A sala está cheia." }
 ```
+Cliente → servidor (POST com JSON):
+```json
+POST /api/salas/:id/acao  { "cliente": "uuid", "acao": "desistir|passar|pagar|aumentar|allin", "valor": 120 }
+POST /api/salas/:id/chat  { "cliente": "uuid", "texto": "boa sorte!" }
+POST /api/salas/:id/sair  { "cliente": "uuid" }
+```
+(`valor` só em `aumentar`, e é o valor **total** apostado na rodada.)
 
 ### Objeto `estado` da mesa
 ```json

@@ -232,6 +232,7 @@
 
   /* ---------- Histórico e chat ---------- */
   function aoEvento(ev) {
+    if (ev.tipo === 'erro') return alertaEVolta(ev.texto);
     if (ev.tipo === 'log') {
       const li = document.createElement('li');
       li.textContent = ev.texto;

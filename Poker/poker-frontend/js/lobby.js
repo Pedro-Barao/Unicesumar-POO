@@ -139,6 +139,8 @@
         bigBlind: bb,
         buyIn: bb * 100,
         maxJogadores: Number($('#maxJogadores').value),
+        bots: Math.min(Number($('#qtdBots').value), Number($('#maxJogadores').value) - 1),
+        dificuldade: Number($('#dificuldade').value),
         privada: $('#privada').checked,
       });
       entrar(sala.id);
